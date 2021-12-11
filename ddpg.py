@@ -52,25 +52,16 @@ def update(x, samples):
 	target = reward_b + gamma * (1 - done_b) * QFunctionTarget(next_state, PolicyFunctionTarg(next_state)).squeeze(1)
 	qfunc = QFunction(state_b, action_b.unsqueeze(1).float()).squeeze(1)
 
-
 	q_loss = torch.pow(qfunc - target.detach(), 2).mean()
 	Qoptim.zero_grad()
 	q_loss.backward()
 	torch.nn.utils.clip_grad_norm_(QFunction.parameters(),clip)
 	Qoptim.step()
 
-
-	#print(q_loss.item())
-				
 	policyfunc = QFunction(state_b, PolicyFunction(state_b)).squeeze(1)
-			
-			
 	policyloss = -1 * policyfunc.mean()
 	Poptim.zero_grad()
 	policyloss.backward()
-
-				
-
 	torch.nn.utils.clip_grad_norm_(PolicyFunction.parameters(),clip)
 	Poptim.step()
 
@@ -80,9 +71,6 @@ def update(x, samples):
 
 		for params, target_params in zip(PolicyFunction.parameters(), PolicyFunctionTarg.parameters()):
 			target_params.data = (1-tau) * target_params.data + (tau) * params.data
-
-
-
 
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
@@ -111,6 +99,8 @@ action_space = 1
 gamma = 0.99
 theta = 0.15
 tau = 0.005
+clip = 0.15
+
 QFunction = QNet(input_sz, action_space)
 PolicyFunction = Policy(input_sz, action_space)
 
@@ -119,29 +109,26 @@ PolicyFunctionTarg = copy.deepcopy(PolicyFunction)
 
 Qoptim = optim.Adam(QFunction.parameters(), lr = 1e-3)
 Poptim = optim.Adam(PolicyFunction.parameters(), lr = 1e-3)
-clip = 0.15
-#noise = NormalNoiseDecayStrategy()
+
+
 env = gym.make('Pendulum-v0')
 ou_noise = OUNoise(action_space)
 replay_buffer = deque(maxlen = 10000)
+
 for eps in range(1000):
 	state = env.reset()
 	j = 0
-
 	ou_noise.reset()
 	for i in range(1000):
+
 		Qoptim.zero_grad()
 		Poptim.zero_grad()
 
 		if eps % 50 == 0:
-
 			env.render()
+
 		state1 = torch.from_numpy(state).unsqueeze(0).float()
-
-
 		action = PolicyFunction(state1)
-		
-		#dx = theta * (mu - action[0].detach().numpy()) + sigma * np.array([np.random.randn() for i in range(action_space)])
 		action += torch.from_numpy(ou_noise.sample())
 		action = torch.clip(action, -2,2)
 		action = action.squeeze(0).detach().numpy()
