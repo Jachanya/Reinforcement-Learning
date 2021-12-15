@@ -10,6 +10,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
+from gym import wrappers
+from time import time
+import imageio
 
 #q network
 class QNet(nn.Module):
@@ -112,13 +115,18 @@ Poptim = optim.Adam(PolicyFunction.parameters(), lr = 1e-3)
 
 
 env = gym.make('Pendulum-v0')
+#env = wrappers.Monitor(env, "recording", force = True)
 ou_noise = OUNoise(action_space)
 replay_buffer = deque(maxlen = 10000)
 
+rewardss = []
+video = []
 for eps in range(1000):
 	state = env.reset()
 	j = 0
 	ou_noise.reset()
+	writer = imageio.get_writer(f'test{eps}.mp4', fps=20)
+
 	for i in range(1000):
 
 		Qoptim.zero_grad()
@@ -126,6 +134,8 @@ for eps in range(1000):
 
 		if eps % 50 == 0:
 			env.render()
+			writer.append_data(env.render(mode = 'rgb_array'))
+
 
 		state1 = torch.from_numpy(state).unsqueeze(0).float()
 		action = PolicyFunction(state1)
@@ -149,6 +159,10 @@ for eps in range(1000):
 			update(eps, samples)
 			
 		
-	
+	rewardss.append(j)
 	print(j)
+
+
+plt.plot(np.arange(len(rewardss)), np.array(rewardss))
+plt.show()
 env.close()
